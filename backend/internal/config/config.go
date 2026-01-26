@@ -30,6 +30,9 @@ type Config struct {
 	StaticDir     string
 	LogLevel      string
 	EnableSwagger bool
+	StorageType   string // sqlite, redis, upstash
+	RedisURL      string
+	RedisToken    string
 }
 
 func Load() Config {
@@ -57,6 +60,14 @@ func Load() Config {
 
 	enableSwagger := os.Getenv("GIST_SWAGGER") == "true"
 
+	storageType := os.Getenv("NEXT_PUBLIC_STORAGE_TYPE")
+	if storageType == "" {
+		storageType = "sqlite" // Default to SQLite
+	}
+
+	redisURL := os.Getenv("UPSTASH_URL")
+	redisToken := os.Getenv("UPSTASH_TOKEN")
+
 	return Config{
 		Addr:          addr,
 		DBPath:        filepath.Clean(path),
@@ -64,6 +75,9 @@ func Load() Config {
 		StaticDir:     filepath.Clean(staticDir),
 		LogLevel:      logLevel,
 		EnableSwagger: enableSwagger,
+		StorageType:   storageType,
+		RedisURL:      redisURL,
+		RedisToken:    redisToken,
 	}
 }
 

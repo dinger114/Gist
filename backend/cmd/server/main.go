@@ -38,21 +38,65 @@ func main() {
 		os.Exit(1)
 	}
 
-	dbConn, err := db.Open(cfg.DBPath)
+	storage, err := db.NewStorage(cfg)
 	if err != nil {
-		logger.Error("open database", "error", err)
+		logger.Error("create storage", "error", err)
 		os.Exit(1)
 	}
-	defer dbConn.Close()
+	defer storage.Close()
 
-	folderRepo := repository.NewFolderRepository(dbConn)
-	feedRepo := repository.NewFeedRepository(dbConn)
-	entryRepo := repository.NewEntryRepository(dbConn)
-	settingsRepo := repository.NewSettingsRepository(dbConn)
-	aiSummaryRepo := repository.NewAISummaryRepository(dbConn)
-	aiTranslationRepo := repository.NewAITranslationRepository(dbConn)
-	aiListTranslationRepo := repository.NewAIListTranslationRepository(dbConn)
-	domainRateLimitRepo := repository.NewDomainRateLimitRepository(dbConn)
+	// For backward compatibility, we'll still create the traditional repositories
+	// but they can be enhanced to use the storage abstraction
+	var (
+		folderRepo            repository.FolderRepository
+		feedRepo              repository.FeedRepository
+		entryRepo             repository.EntryRepository
+		settingsRepo          repository.SettingsRepository
+		aiSummaryRepo         repository.AISummaryRepository
+		aiTranslationRepo     repository.AITranslationRepository
+		aiListTranslationRepo repository.AIListTranslationRepository
+		domainRateLimitRepo   repository.DomainRateLimitRepository
+	)
+
+	if cfg.StorageType == "redis" || cfg.StorageType == "upstash" {
+		// Create Redis-based repositories (to be implemented)
+		logger.Info("using Redis storage backend")
+		// For now, fall back to SQLite with warning
+		logger.Warn("Redis repositories not yet implemented, falling back to SQLite")
+		dbConn, err := db.Open(cfg.DBPath)
+		if err != nil {
+			logger.Error("open database", "error", err)
+			os.Exit(1)
+		}
+		defer dbConn.Close()
+
+		folderRepo = repository.NewFolderRepository(dbConn)
+		feedRepo = repository.NewFeedRepository(dbConn)
+		entryRepo = repository.NewEntryRepository(dbConn)
+		settingsRepo = repository.NewSettingsRepository(dbConn)
+		aiSummaryRepo = repository.NewAISummaryRepository(dbConn)
+		aiTranslationRepo = repository.NewAITranslationRepository(dbConn)
+		aiListTranslationRepo = repository.NewAIListTranslationRepository(dbConn)
+		domainRateLimitRepo = repository.NewDomainRateLimitRepository(dbConn)
+	} else {
+		// Use SQLite
+		logger.Info("using SQLite storage backend")
+		dbConn, err := db.Open(cfg.DBPath)
+		if err != nil {
+			logger.Error("open database", "error", err)
+			os.Exit(1)
+		}
+		defer dbConn.Close()
+
+		folderRepo = repository.NewFolderRepository(dbConn)
+		feedRepo = repository.NewFeedRepository(dbConn)
+		entryRepo = repository.NewEntryRepository(dbConn)
+		settingsRepo = repository.NewSettingsRepository(dbConn)
+		aiSummaryRepo = repository.NewAISummaryRepository(dbConn)
+		aiTranslationRepo = repository.NewAITranslationRepository(dbConn)
+		aiListTranslationRepo = repository.NewAIListTranslationRepository(dbConn)
+		domainRateLimitRepo = repository.NewDomainRateLimitRepository(dbConn)
+	}
 
 	// Initialize rate limiter with stored setting
 	initialRateLimit := ai.DefaultRateLimit
