@@ -1,0 +1,38 @@
+# Stage 1: Frontend Builder
+FROM oven/bun:1.3.5 AS frontend-builder
+WORKDIR /app/frontend
+COPY frontend/package.json frontend/bun.lock ./
+# 移除 --frozen-lockfile 以防止由于版本微差导致的构建失败，并去掉错误的 cache clean
+RUN bun install
+COPY frontend/ ./
+RUN bun run build
+
+# Stage 2: Backend Builder
+FROM golang:1.25.5 AS backend-builder
+WORKDIR /app/backend
+COPY backend/go.mod backend/go.sum ./
+RUN go mod download
+COPY backend/ ./
+RUN CGO_ENABLED=0 GOOS=linux go build -ldflags="-s -w" -v -o gist-server ./cmd/server/main.go
+
+# Stage 3: Final Image
+FROM bitnami/minideb:latest
+WORKDIR /app
+RUN install_packages ca-certificates tzdata
+
+COPY --from=backend-builder /app/backend/gist-server .
+COPY --from=frontend-builder /app/frontend/dist ./static
+RUN mkdir -p /app/data
+
+ENV GIST_ADDR=:8080
+ENV GIST_DATA_DIR=/app/data
+ENV GIST_STATIC_DIR=/app/static
+ENV GIST_LOG_LEVEL=info
+# For Redis storage, set these environment variables:
+# NEXT_PUBLIC_STORAGE_TYPE=redis
+# UPSTASH_URL=redis://default:password@hostname:port
+ENV NEXT_PUBLIC_STORAGE_TYPE=sqlite
+ENV TZ=Asia/Shanghai
+
+EXPOSE 8080
+CMD ["./gist-server"]
